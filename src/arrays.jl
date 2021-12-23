@@ -628,15 +628,15 @@ function scalarize(arr::ArrayOp, idx)
 
     dict = Dict(oi => (unwrap(i) isa Symbolic ? unwrap(i) : axs[oi][i])
                 for (oi, i) in zip(arr.output_idx, idx) if unwrap(oi) isa Symbolic)
-    partial = replace_by_scalarizing(arr.expr, dict)
 
-    axes = [axs[c] for c in contracted]
     if isempty(contracted)
-        partial
+        replace_by_scalarizing(arr.expr, dict)
     else
-        mapreduce(arr.reduce, Iterators.product(axes...)) do idx
-            replace_by_scalarizing(partial, Dict(contracted .=> idx))
+        axes = [axs[c] for c in contracted]
+        contracted_expr = mapreduce(arr.reduce, Iterators.product(axes...)) do idx
+            replace_by_scalarizing(arr.expr, Dict(contracted .=> idx))
         end
+        replace_by_scalarizing(contracted_expr, dict)
     end
 end
 
