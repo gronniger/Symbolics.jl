@@ -618,6 +618,19 @@ function propagate_shape(::typeof(inv), A)
     shp
 end
 
+function dummy_idxs(idxs, exclude)
+    out = Vector{eltype(idxs)}()
+    for idx in idxs
+        idx_try = idx
+        while true
+            idx_try = typeof(idx)(Symbol("Dummy_"*string(idx_try.name)), idx.metadata)
+            any(isequal.(idx_try, union(exclude, out))) || break
+        end
+        push!(out, idx_try)
+    end
+    return out
+end
+
 function scalarize(arr::ArrayOp, idx)
     @assert length(arr.output_idx) == length(idx)
 
@@ -628,12 +641,16 @@ function scalarize(arr::ArrayOp, idx)
 
     dict = Dict(oi => (unwrap(i) isa Symbolic ? unwrap(i) : axs[oi][i])
                 for (oi, i) in zip(arr.output_idx, idx) if unwrap(oi) isa Symbolic)
-    partial = replace_by_scalarizing(arr.expr, dict)
+    rename_dict = Dict(contracted .=> dummy_idxs(contracted, iidx))
+    rename_rule = @rule(getindex(~x, ~~i) => getindex(~x, map(j->haskey(rename_dict,j) ? rename_dict[j] : j, ~~i)...))
+    renamer = Prewalk(Rewriters.PassThrough(rename_rule))
+    partial = replace_by_scalarizing(renamer(arr.expr), dict)
 
     axes = [axs[c] for c in contracted]
     if isempty(contracted)
         partial
     else
+        contracted = [rename_dict[c] for c in contracted]
         mapreduce(arr.reduce, Iterators.product(axes...)) do idx
             replace_by_scalarizing(partial, Dict(contracted .=> idx))
         end
