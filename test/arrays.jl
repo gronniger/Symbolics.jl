@@ -79,7 +79,7 @@ end
     x = unwrap(x)
     @test Symbolics.getparent(collect(x)[1]).metadata === x.metadata
 end
-
+ 
 n = 2
 A = randn(n,n)
 foo(x) = A*x # a function to represent symbolically, note, if this function is defined inside the testset, it's not found by the function fun_eval = eval(fun_ex)
@@ -116,18 +116,18 @@ The following two testsets test jacobians for symbolic functions of symbolic arr
     # Generate an expression instead and eval it manually
     fun_ex = build_function(ex, x, expression=Val{true})
     fun_eval = eval(fun_ex)
-    @test fun_eval(x0) == foo(x0) 
+    @test fun_eval(x0) == foo(x0)
 
     # Try to provide the hidden argument `expression_module` to solve the scoping issue
     @test_skip begin
         fun_genf = build_function(ex, x, expression=Val{false}, expression_module=Main) # UndefVarError: #_RGF_ModTag not defined
-        fun_genf(x0) == A*x0 
+        fun_genf(x0) == A*x0
     end
 
     ## Jacobians
     @test Symbolics.value.(Symbolics.jacobian(foo(x), x)) == A
     @test_skip Symbolics.value.(Symbolics.jacobian(ex , x)) == A #ERROR: axes of foo(x[1:2]) not known
-end 
+end
 
 
 @testset "Functions and Jacobians using manual @wrapped" begin
@@ -145,10 +145,9 @@ end
     # Generate an expression instead and eval it manually
     fun_ex = build_function(ex, x, expression=Val{true})
     fun_eval = eval(fun_ex)
-    @test fun_eval(x0) == foo(x0) 
+    @test fun_eval(x0) == foo(x0)
 
     ## Jacobians
     @test value.(jacobian(foo(x), x)) == A
-    @test value.(jacobian(ex , x)) == A 
+    @test value.(jacobian(ex , x)) == A
 end
-
