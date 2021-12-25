@@ -631,6 +631,12 @@ function dummy_idxs(idxs, exclude)
     return out
 end
 
+function SymbolicUtils.substitute(x::ArrayOp, dict; fold=true)
+  out_idx, expr, redop, ter, tail... = arguments(x)
+  s = x -> substitute(x, dict, fold=fold)
+  return operation(x)((map(s, out_idx)...,), s(expr), redop, s(ter), tail...)
+end
+
 function scalarize(arr::ArrayOp, idx)
     @assert length(arr.output_idx) == length(idx)
 
@@ -642,19 +648,12 @@ function scalarize(arr::ArrayOp, idx)
     dict = Dict(oi => (unwrap(i) isa Symbolic ? unwrap(i) : axs[oi][i])
                 for (oi, i) in zip(arr.output_idx, idx) if unwrap(oi) isa Symbolic)
     rename_dict = Dict(contracted .=> dummy_idxs(contracted, iidx))
-    rename_rule = @rule(getindex(~x, ~~i) => getindex(~x, map(j->haskey(rename_dict,j) ? rename_dict[j] : j, ~~i)...))
-    renamer = Prewalk(Rewriters.PassThrough(rename_rule))
-    println(arr.expr.metadata)
-    partial = replace_by_scalarizing(renamer(arr.expr), dict)
-    istree(partial) && println(partial.metadata)
-
+    partial = replace_by_scalarizing(substitute(arr.expr, rename_dict), dict)
     axes = [axs[c] for c in contracted]
     if isempty(contracted)
         partial
     else
-        (println(ci.metadata) for ci in contracted)
         contracted = [rename_dict[c] for c in contracted]
-        (println(ci.metadata) for ci in contracted)
         mapreduce(arr.reduce, Iterators.product(axes...)) do idx
             replace_by_scalarizing(partial, Dict(contracted .=> idx))
         end
