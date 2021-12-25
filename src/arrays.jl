@@ -644,13 +644,17 @@ function scalarize(arr::ArrayOp, idx)
     rename_dict = Dict(contracted .=> dummy_idxs(contracted, iidx))
     rename_rule = @rule(getindex(~x, ~~i) => getindex(~x, map(j->haskey(rename_dict,j) ? rename_dict[j] : j, ~~i)...))
     renamer = Prewalk(Rewriters.PassThrough(rename_rule))
+    println(arr.expr.metadata)
     partial = replace_by_scalarizing(renamer(arr.expr), dict)
+    istree(partial) && println(partial.metadata)
 
     axes = [axs[c] for c in contracted]
     if isempty(contracted)
         partial
     else
+        (println(ci.metadata) for ci in contracted)
         contracted = [rename_dict[c] for c in contracted]
+        (println(ci.metadata) for ci in contracted)
         mapreduce(arr.reduce, Iterators.product(axes...)) do idx
             replace_by_scalarizing(partial, Dict(contracted .=> idx))
         end
