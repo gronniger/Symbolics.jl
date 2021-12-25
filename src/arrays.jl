@@ -217,6 +217,11 @@ function ndims(aop::ArrayOp)
     length(aop.output_idx)
 end
 
+function SymbolicUtils.substitute(x::ArrayOp, dict; fold=true)
+  out_idx, expr, redop, ter, tail... = arguments(x)
+  s = x -> substitute(x, dict, fold=fold)
+  return operation(x)((map(s, out_idx)...,), s(expr), redop, s(ter), tail...)
+end
 
 ### Utils ###
 
@@ -631,11 +636,6 @@ function dummy_idxs(idxs, exclude)
     return out
 end
 
-function SymbolicUtils.substitute(x::ArrayOp, dict; fold=true)
-  out_idx, expr, redop, ter, tail... = arguments(x)
-  s = x -> substitute(x, dict, fold=fold)
-  return operation(x)((map(s, out_idx)...,), s(expr), redop, s(ter), tail...)
-end
 
 function scalarize(arr::ArrayOp, idx)
     @assert length(arr.output_idx) == length(idx)
@@ -649,10 +649,10 @@ function scalarize(arr::ArrayOp, idx)
                 for (oi, i) in zip(arr.output_idx, idx) if unwrap(oi) isa Symbolic)
     rename_dict = Dict(contracted .=> dummy_idxs(contracted, iidx))
     partial = replace_by_scalarizing(substitute(arr.expr, rename_dict), dict)
-    axes = [axs[c] for c in contracted]
     if isempty(contracted)
         partial
     else
+        axes = [axs[c] for c in contracted]
         contracted = [rename_dict[c] for c in contracted]
         mapreduce(arr.reduce, Iterators.product(axes...)) do idx
             replace_by_scalarizing(partial, Dict(contracted .=> idx))
